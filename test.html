@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test 1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+        }
+        #quiz-container {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 8px;
+            flex: 3;
+        }
+        #navigation-panel {
+            flex: 1;
+            margin-left: 20px;
+        }
+        #timer {
+            float: right;
+        }
+        .option {
+            margin: 10px 0;
+        }
+        #submit, #next-question {
+            margin-top: 20px;
+        }
+        .question-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            text-align: center;
+            line-height: 30px;
+            border: 1px solid #000;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .not-visited { background-color: #fff; }
+        .visited { background-color: #ff9999; }
+        .answered { background-color: #99ff99; }
+        .marked { background-color: #9999ff; }
+        .correct { background-color: #66ff66; }
+        .wrong { background-color: #ff6666; }
+        button {
+            padding: 10px 20px;
+            margin-top: 10px;
+        }
+        .correct-option { background-color: #66ff66; }
+        .wrong-option { background-color: #ff6666; }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <h1>Test 1</h1>
+        <div id="timer">Time Left: <span id="time">05:00</span></div>
+        <h2 id="question"></h2>
+        <div id="options"></div>
+        <button id="mark-review" onclick="markForReview()">Mark for Review</button>
+        <button id="clear-response" onclick="clearResponse()">Clear Response</button>
+        <button id="next-question" onclick="nextQuestion()">Next Question</button>
+        <button id="submit" onclick="submitQuiz()">Submit Quiz</button>
+    </div>
+    <div id="navigation-panel">
+        <h3>Question Navigation</h3>
+        <div id="question-numbers"></div>
+    </div>
+    <div id="performance-result" style="display: none;">
+        <h3>Performance Result</h3>
+        <p id="score"></p>
+    </div>
+
+    <script>
+        const questions = [
+            {
+                question: "Raju has `11,000 and starts saving `5,000 each week towards buying a new laptop. At the same time, Ramesh has `60,000 and begins spending `2,000 per week on supplies for his art class. Will there be a week when they have the same amount of money?",
+                options: ["Yes, after 7 weeks", "Yes, after 6 weeks", "No, they will never have the same amount", "Yes, after 5 weeks"],
+                correctAnswer: "Yes, after 7 weeks"
+            },
+            {
+                question: "What is the capital of France?",
+                options: ["London", "Berlin", "Madrid", "Paris"],
+                correctAnswer: "Paris"
+            },
+            {
+                question: "The age of a tree depends on the number of rings in the trunk. The value of a such tree is proportional to its age. If a tree with 40 rings and 50 years of age has a value of Rs.50,000, then a tree with 30 rings is ____ years of age and its value of Rs._______.",
+                options: ["37.5, 57500", "37.5, 37500", "57.5, 57500", "57.5, 37500"],
+                correctAnswer: "37.5, 37500"
+            },
+            // Add more questions here
+        ];
+
+        let currentQuestion = 0;
+        let answers = new Array(questions.length).fill(null);
+        let questionStatus = new Array(questions.length).fill('not-visited');
+        let timeLeft = 300; // 5 minutes in seconds
+        let timerInterval; // Declare timerInterval globally
+        let quizSubmitted = false;
+
+        function displayQuestion() {
+            const question = questions[currentQuestion];
+            document.getElementById('question').textContent = `Question ${currentQuestion + 1}: ${question.question}`;
+
+            // Show the options for the current question with unique IDs for each question-option
+            const optionsHtml = question.options.map((option, index) => `
+                <div class="option">
+                    <input type="radio" id="option${currentQuestion}-${index}" name="answer" value="${option}" ${answers[currentQuestion] === option ? 'checked' : ''} ${quizSubmitted ? 'disabled' : ''}>
+                    <label for="option${currentQuestion}-${index}" id="label-option${currentQuestion}-${index}">${option}</label>
+                </div>
+            `).join('');
+            document.getElementById('options').innerHTML = optionsHtml;
+
+            if (quizSubmitted) {
+                highlightAnswers();
+            }
+
+            updateQuestionStatus();
+        }
+
+        function nextQuestion() {
+            saveAnswer();
+            if (currentQuestion < questions.length - 1) {
+                currentQuestion++;
+                displayQuestion();
+            }
+        }
+
+        function navigateToQuestion(index) {
+            saveAnswer();
+            currentQuestion = index;
+            displayQuestion();
+        }
+
+        function saveAnswer() {
+            const selectedOption = document.querySelector('input[name="answer"]:checked');
+            if (!quizSubmitted) {  // Prevent changes to status after submission
+                if (selectedOption) {
+                    answers[currentQuestion] = selectedOption.value;
+                    questionStatus[currentQuestion] = 'answered';
+                } else if (questionStatus[currentQuestion] === 'not-visited') {
+                    questionStatus[currentQuestion] = 'visited';
+                }
+            }
+            updateQuestionStatus();
+        }
+
+        function markForReview() {
+            saveAnswer();
+            questionStatus[currentQuestion] = 'marked';
+            updateQuestionStatus();
+        }
+
+        function clearResponse() {
+            answers[currentQuestion] = null;
+            questionStatus[currentQuestion] = 'visited';
+            displayQuestion();
+        }
+
+        function updateQuestionStatus() {
+            const questionNumbers = document.getElementById('question-numbers');
+            questionNumbers.innerHTML = questions.map((_, index) => `
+                <span class="question-number ${questionStatus[index]}" onclick="navigateToQuestion(${index})">
+                    ${index + 1}
+                </span>
+            `).join('');
+        }
+
+        function submitQuiz() {
+            saveAnswer();
+            clearInterval(timerInterval);
+            quizSubmitted = true;
+            showPerformance();
+            updateQuestionStatus();
+        }
+
+        function highlightAnswers() {
+            // Highlight the correct and selected options after the quiz is submitted
+            const question = questions[currentQuestion];
+            question.options.forEach((option, index) => {
+                const optionLabel = document.getElementById(`label-option${currentQuestion}-${index}`);
+
+                // Highlight correct answer in green
+                if (option === question.correctAnswer) {
+                    optionLabel.style.color = 'green';
+                }
+
+                // Highlight wrong selected answer in red
+                const selectedOption = answers[currentQuestion];
+                if (selectedOption && selectedOption === option && selectedOption !== question.correctAnswer) {
+                    optionLabel.style.color = 'red';
+                }
+            });
+        }
+
+        function showPerformance() {
+            let score = 0;
+            let totalQuestions = questions.length;
+
+            // Calculate score
+            for (let i = 0; i < questions.length; i++) {
+                if (answers[i] === questions[i].correctAnswer) {
+                    score++;
+                    questionStatus[i] = 'correct';
+                } else if (answers[i] !== null && answers[i] !== questions[i].correctAnswer) {
+                    questionStatus[i] = 'wrong';
+                }
+            }
+
+            // Display score
+            document.getElementById('score').textContent = `Your score: ${score}/${totalQuestions}`;
+            document.getElementById('performance-result').style.display = 'block';
+        }
+
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('time').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            if (timeLeft === 0) {
+                submitQuiz();
+            } else {
+                timeLeft--;
+            }
+        }
+
+        displayQuestion();
+        updateQuestionStatus();
+        timerInterval = setInterval(updateTimer, 1000);
+    </script>
+</body>
+</html>
+
